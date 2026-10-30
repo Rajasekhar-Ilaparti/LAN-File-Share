@@ -1,0 +1,7 @@
+# Build output (recreated by build_installer.bat)
+build/
+dist/
+installer/Output/
+installer/*.bmp
+__pycache__/
+*.pyc
