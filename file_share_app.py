@@ -1,6 +1,6 @@
 """
-LAN File Share  —  v5
-======================
+LAN File Share  —  v5.1
+========================
 A Windows desktop app that shares a folder over your local network. Any phone
 or PC on the same Wi-Fi opens a link (or scans a QR code) and gets a modern
 file browser: previews, video streaming, multi-select ZIP downloads, and
@@ -65,7 +65,7 @@ except ImportError:
 
 
 APP_NAME = "LAN File Share"
-APP_VERSION = "5.0"
+APP_VERSION = "5.1"
 AUTHOR_NAME = "Viraj"
 AUTHOR_URL = "https://github.com/Rajasekhar-Ilaparti"
 UPDATE_API = "https://api.github.com/repos/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest"
