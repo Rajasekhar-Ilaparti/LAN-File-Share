@@ -29,6 +29,7 @@
 - **Optional PIN** — only people who know the 6-digit PIN can see your files; scanning the QR code signs them in.
 - **Fixes connection problems** — picks the right network, avoids busy ports, and offers one-click Windows Firewall setup (for local-network devices only). Phones show a banner and reconnect automatically if the PC goes away.
 - **Private by design** — files go directly over your own network and never leave it.
+- **Updates itself** — when a new version is out, an **Update** button appears; one click downloads and installs it. The check only asks GitHub for the latest version number and can be turned off under **Settings → Check for updates**.
 
 <p align="center">
   <img src="docs/web-desktop.jpg" width="560" alt="Shared folder in a desktop browser">
@@ -85,6 +86,18 @@ Build `dist\LAN File Share.exe` and the installer `installer\Output\LAN-File-Sha
 ```bash
 build_installer.bat
 ```
+
+## Releasing a new version
+
+1. Change `APP_VERSION` at the top of `file_share_app.py` (for example to `"5.1"`) and commit.
+2. Tag that commit with the same version and push the tag:
+
+   ```bash
+   git tag v5.1
+   git push origin v5.1
+   ```
+
+GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) then builds the app and installer on Windows and publishes a release with `LAN-File-Share-Setup.exe`. Installed copies of the app see the new version and offer to update. The build stops if the tag and `APP_VERSION` don't match.
 
 ## License
 

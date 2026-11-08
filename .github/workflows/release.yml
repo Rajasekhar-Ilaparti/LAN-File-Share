@@ -1,0 +1,59 @@
+# Builds the Windows app and installer. Pushing a tag like v5.1 also publishes
+# a GitHub release with LAN-File-Share-Setup.exe, which the app's
+# "Check for updates" picks up.
+name: Build and release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python packages
+        run: python -m pip install pyinstaller pillow qrcode
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Check the tag matches APP_VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $v = (python file_share_app.py --version).Trim()
+          if ("v$v" -ne $env:TAG) {
+            throw "Tag $env:TAG doesn't match APP_VERSION $v in file_share_app.py. Update APP_VERSION, or tag v$v."
+          }
+
+      - name: Build app and installer
+        shell: cmd
+        run: build_installer.bat
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LAN-File-Share-Setup
+          path: installer/Output/LAN-File-Share-Setup.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/LAN-File-Share-Setup.exe
+          generate_release_notes: true

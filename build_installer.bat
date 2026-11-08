@@ -1,5 +1,5 @@
 @echo off
-rem Builds dist\LAN File Share.exe and then installer\Output\LAN-File-Share-Setup-<version>.exe
+rem Builds dist\LAN File Share.exe and then installer\Output\LAN-File-Share-Setup.exe
 rem Needs: Python with pyinstaller, pillow, qrcode  +  Inno Setup 6 (winget install JRSoftware.InnoSetup)
 setlocal
 cd /d "%~dp0"
@@ -12,6 +12,13 @@ if not exist "%ISCC%" (
   exit /b 1
 )
 
+for /f "delims=" %%v in ('python file_share_app.py --version') do set "APPVER=%%v"
+if not defined APPVER (
+  echo Could not read APP_VERSION from file_share_app.py
+  exit /b 1
+)
+echo Building version %APPVER%
+
 echo [1/4] Drawing the app icon...
 python file_share_app.py --make-icon || exit /b 1
 
@@ -22,7 +29,7 @@ echo [3/4] Drawing the setup wizard images...
 python installer\make_wizard_images.py || exit /b 1
 
 echo [4/4] Building the installer...
-"%ISCC%" /Q installer\LANFileShare.iss || exit /b 1
+"%ISCC%" /Q "/DAppVersion=%APPVER%" installer\LANFileShare.iss || exit /b 1
 
 echo.
 echo Done:  installer\Output\

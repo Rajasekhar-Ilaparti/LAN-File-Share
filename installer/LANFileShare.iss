@@ -2,7 +2,10 @@
 ; Build everything with build_installer.bat in the project folder.
 
 #define AppName "LAN File Share"
-#define AppVersion "5.0"
+; build_installer.bat passes the version from file_share_app.py (/DAppVersion=...)
+#ifndef AppVersion
+  #define AppVersion "5.0"
+#endif
 #define AppExe "LAN File Share.exe"
 #define FirewallRule "LAN File Share"
 
@@ -58,9 +61,12 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 ; network profile (home Wi-Fi is often marked "Public" by Windows).
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command ""Remove-NetFirewallRule -DisplayName '{#FirewallRule}' -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName '{#FirewallRule}' -Description 'Lets phones and PCs on your local network open LAN File Share.' -Direction Inbound -Action Allow -Protocol TCP -Program '{app}\{#AppExe}' -RemoteAddress LocalSubnet -Profile Any"""; \
-  Verb: runas; Flags: shellexec runhidden waituntilterminated; Tasks: firewall; \
+  Verb: runas; Flags: shellexec runhidden waituntilterminated; Tasks: firewall; Check: not WizardSilent; \
   StatusMsg: "Allowing phones on your network to connect..."
 Filename: "{app}\{#AppExe}"; Description: "Open {#AppName} now"; Flags: nowait postinstall skipifsilent
+; In-app updates run setup with /SILENT: reopen the app when they finish. (They also skip the
+; firewall step above; the rule from the first install still covers the same program path.)
+Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent runasoriginaluser
 
 [Code]
 function PowerShellPath(): String;
