@@ -65,6 +65,8 @@ except ImportError:
 
 APP_NAME = "LAN File Share"
 APP_VERSION = "5.0"
+AUTHOR_NAME = "Viraj"
+AUTHOR_URL = "https://github.com/Rajasekhar-Ilaparti"
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".lan_file_share_config.json")
 FIREWALL_RULE = "LAN File Share"
 IS_WINDOWS = sys.platform.startswith("win")
@@ -426,6 +428,10 @@ background:var(--surface);cursor:pointer;font-weight:600;white-space:nowrap;tran
 .btn .i{width:18px;height:18px}
 .logo{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:#fff;flex:none}
 .logo .i{width:19px;height:19px;stroke-width:2}
+.credit{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
+.credit .heart{color:var(--danger)}
+.credit a{color:var(--accent);font-weight:600}
+.credit a:hover{text-decoration:underline}
 """
 
 ICON_SPRITE = r"""<svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -462,6 +468,8 @@ ICON_SPRITE = r"""<svg width="0" height="0" style="position:absolute" aria-hidde
 </svg>"""
 
 THEME_BOOT = """<script>try{var t=localStorage.getItem('lfs-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>"""
+CREDIT_HTML = (f'<div class="credit">Made with <span class="heart">\u2665</span> by {AUTHOR_NAME} \u00b7 '
+               f'<a href="{AUTHOR_URL}" target="_blank" rel="noopener">GitHub</a></div>')
 
 PAGE_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -707,6 +715,7 @@ body.has-sel #toast{bottom:calc(90px + env(safe-area-inset-bottom))}
   <section id="items" class="items list"></section>
   <div id="empty" class="empty" hidden></div>
   <div class="foot" id="foot"></div>
+  {{CREDIT}}
 </main>
 
 <div class="selbar" id="selbar" role="toolbar" aria-label="Selection">
@@ -1025,7 +1034,7 @@ LOGIN_TEMPLATE = r"""<!DOCTYPE html>
 {{THEME_BOOT}}
 <style>
 {{BASE_CSS}}
-.login{min-height:100vh;display:grid;place-items:center;padding:16px}
+.login{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px}
 .card{width:100%;max-width:370px;background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:30px 26px;text-align:center}
 .card .logo{margin:0 auto;width:52px;height:52px;border-radius:15px}
 .card .logo .i{width:26px;height:26px}
@@ -1049,6 +1058,7 @@ p{color:var(--muted);margin:0 0 20px}
     <div class="err" role="alert">{{ERROR}}</div>
     <button class="btn primary" type="submit">Open shared files</button>
   </form>
+  {{CREDIT}}
 </div>
 <script>var i=document.querySelector('.pin');i.addEventListener('input',function(){i.value=i.value.replace(/\D/g,'').slice(0,6);if(i.value.length===6)i.form.submit()});</script>
 </body>
@@ -1065,7 +1075,7 @@ padding:11px 18px;border-radius:10px;text-decoration:none;font-weight:600}</styl
 
 
 def fill_template(template, **values):
-    out = template.replace("{{PIXEL_LOGO}}", PIXEL_LOGO_URI).replace("{{BASE_CSS}}", BASE_CSS).replace("{{THEME_BOOT}}", THEME_BOOT).replace("{{ICONS}}", ICON_SPRITE)
+    out = template.replace("{{PIXEL_LOGO}}", PIXEL_LOGO_URI).replace("{{BASE_CSS}}", BASE_CSS).replace("{{THEME_BOOT}}", THEME_BOOT).replace("{{ICONS}}", ICON_SPRITE).replace("{{CREDIT}}", CREDIT_HTML)
     # DATA goes last so text inside file names can never be treated as a placeholder
     for key in sorted(values, key=lambda k: k == "DATA"):
         out = out.replace("{{" + key + "}}", values[key])
@@ -2444,6 +2454,18 @@ class FileShareApp:
         RoundButton(right, self, "Can't connect?", self.show_help, "ghost", size=9, padx=12, pady=6).pack(side="right", padx=(px(8), 0))
         self.pill = Pill(right, self)
         self.pill.pack(side="right")
+
+        # Footer credit (packed before the body so the expanding body can't push it off-screen)
+        foot = tk.Frame(self.root, bg=p["bg"])
+        foot.pack(side="bottom", fill="x", pady=(0, px(10)))
+        credit = tk.Frame(foot, bg=p["bg"])
+        credit.pack()
+        self._label(credit, "Made with", 9, color="muted").pack(side="left")
+        self._label(credit, "\u2665", 9, color="danger").pack(side="left", padx=px(3))
+        self._label(credit, f"by {AUTHOR_NAME}  \u00b7", 9, color="muted").pack(side="left")
+        gh = self._label(credit, "GitHub", 9, "semi", color="link", cursor="hand2")
+        gh.pack(side="left", padx=(px(4), 0))
+        gh.bind("<Button-1>", lambda e: webbrowser.open(AUTHOR_URL))
 
         # Body: settings on the left; share panel and activity log on the right
         body = tk.Frame(self.root, bg=p["bg"])
