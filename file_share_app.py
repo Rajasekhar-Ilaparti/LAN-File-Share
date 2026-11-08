@@ -43,6 +43,7 @@ import time
 import tkinter as tk
 import tkinter.font as tkfont
 import urllib.parse
+import urllib.request
 import webbrowser
 import zipfile
 from collections import OrderedDict
@@ -67,6 +68,8 @@ APP_NAME = "LAN File Share"
 APP_VERSION = "5.0"
 AUTHOR_NAME = "Viraj"
 AUTHOR_URL = "https://github.com/Rajasekhar-Ilaparti"
+UPDATE_API = "https://api.github.com/repos/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest"
+SETUP_ASSET = "LAN-File-Share-Setup.exe"  # installer file name attached to each GitHub release
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".lan_file_share_config.json")
 FIREWALL_RULE = "LAN File Share"
 IS_WINDOWS = sys.platform.startswith("win")
@@ -84,6 +87,7 @@ DEFAULT_CONFIG = {
     "require_pin": False,
     "pin": "",
     "auto_start": False,
+    "check_updates": True,
     "adapter_ip": "",
     "secret": "",
 }
@@ -1080,6 +1084,44 @@ def fill_template(template, **values):
     for key in sorted(values, key=lambda k: k == "DATA"):
         out = out.replace("{{" + key + "}}", values[key])
     return out
+
+
+# =========================================================================
+#  Updates (GitHub releases)
+# =========================================================================
+
+def version_tuple(text):
+    """'v5.1' -> (5, 1, 0, 0) so versions compare as numbers, not strings."""
+    nums = [int(n) for n in re.findall(r"\d+", text)[:4]]
+    return tuple(nums + [0] * (4 - len(nums)))
+
+
+def fetch_latest_release(timeout=10):
+    """Return {'version', 'setup_url', 'page_url'} for the newest published release.
+    Only the version number is requested; nothing about this PC is sent."""
+    req = urllib.request.Request(UPDATE_API, headers={
+        "Accept": "application/vnd.github+json",
+        "User-Agent": f"LAN-File-Share/{APP_VERSION}",
+    })
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = json.load(resp)
+    setup_url = next((a.get("browser_download_url") for a in data.get("assets", [])
+                      if a.get("name") == SETUP_ASSET), None)
+    return {"version": str(data.get("tag_name", "")).lstrip("vV"), "setup_url": setup_url,
+            "page_url": data.get("html_url") or "https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest"}
+
+
+def download_file(url, dest, timeout=30):
+    """Download url to dest via a temporary .part file, so a broken download never looks finished."""
+    part = dest + ".part"
+    req = urllib.request.Request(url, headers={"User-Agent": f"LAN-File-Share/{APP_VERSION}"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp, open(part, "wb") as f:
+        expected = int(resp.headers.get("Content-Length") or 0)
+        shutil.copyfileobj(resp, f, IO_CHUNK)
+    if expected and os.path.getsize(part) != expected:
+        os.remove(part)
+        raise OSError("the download was incomplete")
+    os.replace(part, dest)
 
 
 # =========================================================================
@@ -2384,6 +2426,8 @@ class FileShareApp:
         self.uploads_enabled = tk.BooleanVar(value=self.cfg.get("allow_uploads", False))
         self.require_pin = tk.BooleanVar(value=self.cfg.get("require_pin", False))
         self.auto_start = tk.BooleanVar(value=self.cfg.get("auto_start", False))
+        self.check_updates = tk.BooleanVar(value=self.cfg.get("check_updates", True))
+        self.update_info = None
         self.url_var = tk.StringVar()
 
         root.title(APP_NAME)
@@ -2402,6 +2446,7 @@ class FileShareApp:
         self.uploads_enabled.trace_add("write", self._on_uploads_toggled)
         self.require_pin.trace_add("write", self._on_pin_toggled)
         self.auto_start.trace_add("write", lambda *_: self._save_settings())
+        self.check_updates.trace_add("write", self._on_updates_toggled)
         root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self._refresh_folder()
@@ -2411,6 +2456,8 @@ class FileShareApp:
         self._tick_stats()
         self.refresh_adapters(then_autostart=self.auto_start.get())
         self.log(f"{APP_NAME} {APP_VERSION} ready. Choose a folder and press Start sharing.")
+        if self.check_updates.get():
+            root.after(3000, self.check_for_updates)
 
     # ---------------- setup ----------------
 
@@ -2454,6 +2501,9 @@ class FileShareApp:
         RoundButton(right, self, "Can't connect?", self.show_help, "ghost", size=9, padx=12, pady=6).pack(side="right", padx=(px(8), 0))
         self.pill = Pill(right, self)
         self.pill.pack(side="right")
+        # Shown only when a newer release exists (packed by _on_update_found)
+        self.update_btn = RoundButton(right, self, "Update available", self.install_update, "primary",
+                                      size=9, padx=12, pady=6)
 
         # Footer credit (packed before the body so the expanding body can't push it off-screen)
         foot = tk.Frame(self.root, bg=p["bg"])
@@ -2557,6 +2607,9 @@ class FileShareApp:
         RoundButton(self.pin_row, self, "New PIN", self.new_pin, "ghost", size=9, padx=10, pady=3, radius=8).pack(side="left", padx=(px(8), 0))
         self.auto_switch = ToggleSwitch(inner, self, self.auto_start, "Start sharing when the app opens")
         self.auto_switch.pack(fill="x", pady=(px(14), 0))
+        self.updates_switch = ToggleSwitch(inner, self, self.check_updates, "Check for updates",
+                                           "Asks GitHub for new versions. No files are sent")
+        self.updates_switch.pack(fill="x", pady=(px(14), 0))
 
     def _build_idle_view(self):
         p, px = self.p, self.px
@@ -2844,6 +2897,7 @@ class FileShareApp:
         self.cfg["allow_uploads"] = bool(self.uploads_enabled.get())
         self.cfg["require_pin"] = bool(self.require_pin.get())
         self.cfg["auto_start"] = bool(self.auto_start.get())
+        self.cfg["check_updates"] = bool(self.check_updates.get())
         save_config(self.cfg)
 
     def _on_uploads_toggled(self, *_):
@@ -3102,6 +3156,75 @@ class FileShareApp:
             "6.  If this PC has more than one network (Wi-Fi, Ethernet, VPN), pick the one the phone is on "
             "under Settings → Network.")
 
+    # ---------------- updates ----------------
+
+    def _on_updates_toggled(self, *_):
+        self._save_settings()
+        if self.check_updates.get():
+            self.check_for_updates()
+        elif self.update_info:
+            self.update_btn.pack_forget()
+
+    def check_for_updates(self):
+        def work():
+            try:
+                info = fetch_latest_release()
+            except Exception:
+                return  # offline or GitHub unreachable: stay quiet, sharing works without it
+            if version_tuple(info["version"]) > version_tuple(APP_VERSION):
+                self.call_in_ui(self._on_update_found, info)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_update_found(self, info):
+        if not self.check_updates.get():
+            return
+        first = self.update_info is None
+        self.update_info = info
+        self.update_btn.set(text=f"Update to {info['version']}", enabled=True)
+        self.update_btn.pack(side="right", padx=(0, self.px(8)))
+        if first:
+            self.log(f"Version {info['version']} is available. Press “Update to {info['version']}” at the top to install it.", "success")
+
+    def install_update(self):
+        info = self.update_info
+        if not info:
+            return
+        # Running from source, or the release has no installer: just show the release page
+        if not (IS_WINDOWS and getattr(sys, "frozen", False) and info["setup_url"]):
+            webbrowser.open(info["page_url"])
+            return
+        if not messagebox.askyesno(
+                f"Update to {info['version']}",
+                f"Download and install {APP_NAME} {info['version']}?\n\n"
+                f"The app will close while it updates and open again when it's done. "
+                f"Sharing stops until then.", parent=self.root):
+            return
+        self.update_btn.set(text="Downloading…", enabled=False)
+        self.log(f"Downloading version {info['version']}…")
+        dest = os.path.join(tempfile.gettempdir(), f"LAN-File-Share-Setup-{info['version']}.exe")
+
+        def work():
+            try:
+                download_file(info["setup_url"], dest)
+            except Exception as e:
+                self.log(f"Couldn't download the update: {e}", "error")
+                self.call_in_ui(self.update_btn.set, f"Update to {info['version']}", None, True)
+                return
+            self.call_in_ui(self._run_installer, dest)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _run_installer(self, path):
+        release_single_instance()  # so setup doesn't wait for this window to close
+        try:
+            # /SILENT shows only a progress window; setup reuses the previous install folder and options,
+            # then reopens the app (see the skipifnotsilent [Run] entry in the installer script)
+            subprocess.Popen([path, "/SILENT", "/NORESTART"])
+        except OSError as e:
+            self.log(f"Couldn't start the installer: {e}", "error")
+            self.update_btn.set(text=f"Update to {self.update_info['version']}", enabled=True)
+            return
+        self.on_close()
+
     def on_close(self):
         if self.server:
             self.stop_server()
@@ -3135,7 +3258,21 @@ def claim_single_instance():
         return True
 
 
+def release_single_instance():
+    global _instance_mutex
+    if _instance_mutex:
+        try:
+            import ctypes
+            ctypes.WinDLL("kernel32").CloseHandle(ctypes.c_void_p(_instance_mutex))
+        except Exception:
+            pass
+        _instance_mutex = None
+
+
 if __name__ == "__main__":
+    if "--version" in sys.argv:
+        print(APP_VERSION)
+        sys.exit(0)
     if "--make-icon" in sys.argv:
         write_icon(os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_icon.ico"))
         sys.exit(0)
