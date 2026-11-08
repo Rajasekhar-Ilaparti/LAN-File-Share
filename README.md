@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest/download/LAN-File-Share-Setup.exe"><b>⬇ Download for Windows</b></a>
+  &nbsp;<a href="https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest"><img src="https://img.shields.io/github/v/release/Rajasekhar-Ilaparti/LAN-File-Share?label=latest&color=5850ec" alt="Latest version" align="absmiddle"></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest">All releases</a>
 </p>
@@ -39,7 +40,7 @@
 
 ## Install
 
-1. Download **[LAN-File-Share-Setup.exe](https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest/download/LAN-File-Share-Setup.exe)**.
+1. Download the latest **[LAN-File-Share-Setup.exe](https://github.com/Rajasekhar-Ilaparti/LAN-File-Share/releases/latest/download/LAN-File-Share-Setup.exe)**.
 2. Run it. Windows may show **"Windows protected your PC"** because the installer isn't code-signed — click **More info → Run anyway**.
 3. Tick **"Let phones on my network connect"** during setup (recommended), then finish.
 

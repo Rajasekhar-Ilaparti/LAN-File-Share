@@ -4,7 +4,7 @@
 #define AppName "LAN File Share"
 ; build_installer.bat passes the version from file_share_app.py (/DAppVersion=...)
 #ifndef AppVersion
-  #define AppVersion "5.0"
+  #define AppVersion "5.1"
 #endif
 #define AppExe "LAN File Share.exe"
 #define FirewallRule "LAN File Share"
